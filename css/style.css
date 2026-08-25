@@ -307,6 +307,45 @@ input, select {
   opacity: 0.9;
 }
 
+.task-drag-handle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.grip-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c3cad3;
+  box-shadow:
+    0 -7px 0 #c3cad3,
+    0 7px 0 #c3cad3,
+    7px -7px 0 #c3cad3,
+    7px 0 0 #c3cad3,
+    7px 7px 0 #c3cad3;
+}
+
+.task-card.dragging {
+  box-shadow: 0 10px 26px rgba(30, 60, 100, 0.28);
+  opacity: 0.96;
+}
+
+.task-drop-placeholder {
+  border: 2px dashed #b9c6d6;
+  border-radius: 16px;
+  background: rgba(46, 123, 196, 0.06);
+  flex-shrink: 0;
+}
+
 /* ---------- Empty State ---------- */
 .empty-state {
   position: absolute;

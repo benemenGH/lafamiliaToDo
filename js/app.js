@@ -165,6 +165,9 @@
     var titleEl = node.querySelector(".task-title");
     var metaEl = node.querySelector(".task-meta");
     var editBtn = node.querySelector(".task-edit-btn");
+    var dragHandle = node.querySelector(".task-drag-handle");
+
+    card.setAttribute("data-task-id", task.id);
 
     if (recurrence.isFullyDone(task)) card.classList.add("done");
     if (task.icon) {
@@ -182,7 +185,128 @@
       });
     });
 
+    wireDragHandle(dragHandle, task, card);
+
     return card;
+  }
+
+  // ---------- Drag & Drop (Touch, kein HTML5-DnD - das funktioniert auf
+  // iOS Safari nicht per Touch) ----------
+
+  function getEventY(e) {
+    if (e.touches && e.touches.length) return e.touches[0].clientY;
+    if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
+    return e.clientY;
+  }
+
+  function wireDragHandle(handle, task, cardEl) {
+    var drag = null;
+
+    function onStart(e) {
+      // Verschieben ist wie Bearbeiten/Löschen PIN-geschützt.
+      if (Date.now() >= unlockedUntil) {
+        requireUnlock(function () {}); // beim nächsten Versuch klappt der Zug dann
+        return;
+      }
+      if (e.touches && e.touches.length > 1) return;
+
+      var rect = cardEl.getBoundingClientRect();
+      var placeholder = document.createElement("div");
+      placeholder.className = "task-drop-placeholder";
+      placeholder.style.height = rect.height + "px";
+
+      drag = {
+        startY: getEventY(e),
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+        container: cardEl.parentNode,
+        placeholder: placeholder,
+        engaged: false
+      };
+
+      document.addEventListener("touchmove", onMove, { passive: false });
+      document.addEventListener("touchend", onEnd);
+      document.addEventListener("touchcancel", onEnd);
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onEnd);
+    }
+
+    function engage() {
+      drag.container.insertBefore(drag.placeholder, cardEl);
+      cardEl.classList.add("dragging");
+      cardEl.style.position = "fixed";
+      cardEl.style.left = drag.left + "px";
+      cardEl.style.top = drag.top + "px";
+      cardEl.style.width = drag.width + "px";
+      cardEl.style.zIndex = "60";
+      document.body.appendChild(cardEl);
+      drag.engaged = true;
+    }
+
+    function onMove(e) {
+      if (!drag) return;
+      var y = getEventY(e);
+      var deltaY = y - drag.startY;
+
+      if (!drag.engaged) {
+        if (Math.abs(deltaY) < 6) return;
+        engage();
+      }
+
+      if (e.cancelable) e.preventDefault();
+      cardEl.style.top = (drag.top + deltaY) + "px";
+
+      var siblings = Array.prototype.slice.call(
+        drag.container.querySelectorAll(".task-card")
+      );
+      var cardCenter = drag.top + deltaY + drag.height / 2;
+      var target = null;
+      for (var i = 0; i < siblings.length; i++) {
+        var sRect = siblings[i].getBoundingClientRect();
+        if (cardCenter < sRect.top + sRect.height / 2) {
+          target = siblings[i];
+          break;
+        }
+      }
+      if (target) {
+        drag.container.insertBefore(drag.placeholder, target);
+      } else {
+        drag.container.appendChild(drag.placeholder);
+      }
+    }
+
+    function onEnd() {
+      if (!drag) return;
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onEnd);
+
+      if (drag.engaged) {
+        var container = drag.container;
+        container.insertBefore(cardEl, drag.placeholder);
+        container.removeChild(drag.placeholder);
+        cardEl.classList.remove("dragging");
+        cardEl.style.position = "";
+        cardEl.style.left = "";
+        cardEl.style.top = "";
+        cardEl.style.width = "";
+        cardEl.style.zIndex = "";
+
+        var orderedIds = Array.prototype.slice.call(
+          container.querySelectorAll(".task-card")
+        ).map(function (el) { return el.getAttribute("data-task-id"); });
+        storage.reorderTasksForMember(task.memberId, orderedIds);
+        renderBoard();
+      }
+      drag = null;
+    }
+
+    handle.addEventListener("touchstart", onStart, { passive: true });
+    handle.addEventListener("mousedown", onStart);
   }
 
   // Baut je nach timesPerDay entweder einen großen Haken-Button (1x) oder

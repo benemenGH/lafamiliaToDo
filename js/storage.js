@@ -274,6 +274,17 @@ var LFT = window.LFT || {};
     moveTask(id, 1);
   }
 
+  // Übernimmt eine komplette neue Reihenfolge (z.B. nach Drag & Drop auf
+  // dem Board). orderedIds = Task-IDs des Mitglieds in der gewünschten
+  // Reihenfolge.
+  function reorderTasksForMember(memberId, orderedIds) {
+    orderedIds.forEach(function (id, idx) {
+      var task = state.tasks.find(function (t) { return t.id === id && t.memberId === memberId; });
+      if (task) task.order = idx;
+    });
+    persist();
+  }
+
   function saveTasksBulk() {
     persist();
   }
@@ -351,6 +362,7 @@ var LFT = window.LFT || {};
     setTaskFlag: setTaskFlag,
     moveTaskUp: moveTaskUp,
     moveTaskDown: moveTaskDown,
+    reorderTasksForMember: reorderTasksForMember,
     saveTasksBulk: saveTasksBulk,
     runDailyReset: runDailyReset,
     hasPin: hasPin,
