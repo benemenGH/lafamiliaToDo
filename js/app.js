@@ -358,8 +358,13 @@
     var n = task.timesPerDay || 1;
 
     if (n <= 1) {
-      var btn = document.createElement("button");
+      // <div> statt <button> - manche iOS-Safari-Versionen rendern
+      // <button>-Elemente mit border-radius:50% nicht als sauberen Kreis,
+      // da native Formularsteuerelement-Metriken auch mit appearance:none
+      // nicht immer vollständig zurückgesetzt werden.
+      var btn = document.createElement("div");
       btn.className = "task-check";
+      btn.setAttribute("role", "button");
       btn.setAttribute("aria-label", "Aufgabe abhaken");
       var icon = document.createElement("span");
       icon.className = "task-check-icon";
@@ -377,8 +382,9 @@
     group.className = "task-check-multi";
     for (var i = 0; i < n; i++) {
       (function (index) {
-        var mini = document.createElement("button");
+        var mini = document.createElement("div");
         mini.className = "task-check-mini";
+        mini.setAttribute("role", "button");
         mini.setAttribute("aria-label", "Aufgabe abhaken (" + (index + 1) + "/" + n + ")");
         var mIcon = document.createElement("span");
         mIcon.className = "task-check-icon";
