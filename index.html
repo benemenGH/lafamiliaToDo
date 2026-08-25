@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Familien To-Do</title>
+
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#2E7BC4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="To-Do">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
+
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header class="app-header">
+    <div class="app-title">
+      <span class="app-title-icon" aria-hidden="true">✅</span>
+      <span>Familien To-Do</span>
+    </div>
+    <div class="app-header-right">
+      <span id="today-label" class="today-label"></span>
+      <button id="settings-btn" class="icon-btn" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
+    </div>
+  </header>
+
+  <main id="board" class="board" aria-live="polite">
+    <!-- Spalten werden hier per JS eingefügt -->
+  </main>
+
+  <div id="empty-state" class="empty-state hidden">
+    <div class="empty-state-emoji">👋</div>
+    <h2>Willkommen bei eurem Familien To-Do!</h2>
+    <p>Legt zuerst fest, wer alles mitmacht.</p>
+    <button id="onboarding-add-member-btn" class="primary-btn">Familienmitglied hinzufügen</button>
+  </div>
+
+</div>
+
+<!-- Overlay-Container für Dialoge -->
+<div id="overlay-root"></div>
+
+<!-- Konfetti-Layer -->
+<div id="confetti-root" aria-hidden="true"></div>
+
+<template id="tpl-column">
+  <section class="column">
+    <header class="column-header">
+      <span class="column-avatar"></span>
+      <h2 class="column-name"></h2>
+    </header>
+    <div class="column-tasks"></div>
+    <button class="add-task-btn">+ Aufgabe</button>
+  </section>
+</template>
+
+<template id="tpl-task-card">
+  <article class="task-card">
+    <button class="task-check" aria-label="Aufgabe abhaken">
+      <span class="task-check-icon">✓</span>
+    </button>
+    <div class="task-body">
+      <div class="task-title"></div>
+      <div class="task-meta"></div>
+    </div>
+    <button class="task-edit-btn" aria-label="Aufgabe bearbeiten" title="Bearbeiten">✏️</button>
+  </article>
+</template>
+
+<script src="./js/storage.js"></script>
+<script src="./js/recurrence.js"></script>
+<script src="./js/confetti.js"></script>
+<script src="./js/app.js"></script>
+</body>
+</html>
