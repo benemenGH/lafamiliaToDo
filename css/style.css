@@ -158,7 +158,7 @@ input, select {
 /* ---------- Task Card ---------- */
 .task-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   background: #ffffff;
   border-radius: 16px;
   padding: 10px 10px 10px 8px;
@@ -167,12 +167,32 @@ input, select {
   transition: transform 0.12s ease, opacity 0.2s ease;
 }
 
-.task-card > * + * {
-  margin-left: 10px;
-}
-
 .task-card.done {
   opacity: 0.55;
+}
+
+/* Obere Zeile: Icon + Titel (bekommt immer den vollen verfügbaren Platz,
+   egal wie viele Haken-Kreise oder Buttons in der unteren Zeile stehen)
+   sowie die Bearbeiten-/Verschieben-Buttons. */
+.task-row-top {
+  display: flex;
+  align-items: flex-start;
+}
+
+.task-row-top > * + * {
+  margin-left: 8px;
+}
+
+/* Untere Zeile: Haken-Kreis(e) + Wiederholungs-Hinweis, mit voller
+   Kartenbreite für sich - konkurriert nie mit dem Titeltext. */
+.task-row-bottom {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.task-row-bottom > * + * {
+  margin-left: 10px;
 }
 
 .task-check {
@@ -261,26 +281,24 @@ input, select {
 
 .task-icon {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   background: #f2f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-}
-
-.task-body {
-  flex: 1;
-  min-width: 0;
+  font-size: 18px;
 }
 
 .task-title {
+  flex: 1;
+  min-width: 0;
   font-size: 16px;
   font-weight: 600;
   color: #2b3242;
   word-break: break-word;
+  padding-top: 4px;
 }
 
 .task-card.done .task-title {
@@ -289,9 +307,10 @@ input, select {
 }
 
 .task-meta {
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
   color: #8b93a1;
-  margin-top: 2px;
 }
 
 .task-edit-btn {
@@ -300,7 +319,8 @@ input, select {
   background: transparent;
   font-size: 16px;
   opacity: 0.45;
-  padding: 8px;
+  padding: 6px;
+  margin-top: -2px;
 }
 
 .task-edit-btn:active {
@@ -309,8 +329,8 @@ input, select {
 
 .task-drag-handle {
   flex-shrink: 0;
-  width: 26px;
-  height: 40px;
+  width: 24px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
