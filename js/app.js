@@ -129,12 +129,12 @@
     var tpl = document.getElementById("tpl-column");
     var node = tpl.content.cloneNode(true);
     var section = node.querySelector(".column");
-    var avatar = node.querySelector(".column-avatar");
+    var avatarPlaceholder = node.querySelector(".column-avatar");
     var name = node.querySelector(".column-name");
     var tasksContainer = node.querySelector(".column-tasks");
     var addBtn = node.querySelector(".add-task-btn");
 
-    avatar.style.background = member.color;
+    avatarPlaceholder.parentNode.replaceChild(createAvatarEl(member, "column-avatar"), avatarPlaceholder);
     name.textContent = member.name;
 
     var today = new Date();
@@ -455,6 +455,54 @@
     return e;
   }
 
+  // Erstellt das Avatar-Element für ein Familienmitglied: ein Profilfoto,
+  // falls vorhanden, sonst der farbige Punkt als Rückfallebene. className
+  // steuert über die vorhandenen CSS-Regeln Größe/Form (z.B. "column-avatar",
+  // "dot").
+  function createAvatarEl(member, className) {
+    if (member.photo) {
+      var img = document.createElement("img");
+      img.className = className;
+      img.src = member.photo;
+      img.alt = "";
+      return img;
+    }
+    var span = document.createElement("span");
+    span.className = className;
+    span.style.background = member.color;
+    return span;
+  }
+
+  var PROFILE_PHOTO_SIZE = 200;
+
+  // Liest eine Bilddatei ein, schneidet sie quadratisch zu (Mitte) und
+  // verkleinert sie auf PROFILE_PHOTO_SIZE, damit Profilfotos nicht mit
+  // mehreren MB den begrenzten localStorage sprengen (typ. Limit ~5 MB).
+  function resizeImageFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(reader.error || new Error("Datei konnte nicht gelesen werden")); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error("Bild konnte nicht geladen werden")); };
+        img.onload = function () {
+          var size = PROFILE_PHOTO_SIZE;
+          var canvas = document.createElement("canvas");
+          canvas.width = size;
+          canvas.height = size;
+          var ctx = canvas.getContext("2d");
+          var srcSize = Math.min(img.naturalWidth, img.naturalHeight);
+          var srcX = (img.naturalWidth - srcSize) / 2;
+          var srcY = (img.naturalHeight - srcSize) / 2;
+          ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, size, size);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   // ---------- PIN Flow ----------
 
   var pinFlowActive = false;
@@ -653,9 +701,7 @@
     members.forEach(function (m) {
       var chip = el("div", "member-chip");
       chip.setAttribute("data-id", m.id);
-      var dot = el("span", "dot");
-      dot.style.background = m.color;
-      chip.appendChild(dot);
+      chip.appendChild(createAvatarEl(m, "dot"));
       chip.appendChild(el("span", null, m.name));
       if (m.id === selectedMemberId) chip.classList.add("active");
       chip.addEventListener("click", function () {
@@ -887,9 +933,7 @@
       list.innerHTML = "";
       storage.getMembers().forEach(function (m) {
         var row = el("div", "member-row");
-        var dot = el("span", "dot");
-        dot.style.background = m.color;
-        row.appendChild(dot);
+        row.appendChild(createAvatarEl(m, "dot"));
         row.appendChild(el("span", "name", m.name));
 
         var editBtn = document.createElement("button");
@@ -944,9 +988,7 @@
 
       members.forEach(function (member) {
         var heading = el("div", "task-list-member-heading");
-        var dot = el("span", "dot");
-        dot.style.background = member.color;
-        heading.appendChild(dot);
+        heading.appendChild(createAvatarEl(member, "dot"));
         heading.appendChild(el("span", null, member.name));
         taskList.appendChild(heading);
 
@@ -959,9 +1001,7 @@
 
         memberTasks.forEach(function (t) {
           var row = el("div", "member-row");
-          var rowDot = el("span", "dot");
-          rowDot.style.background = member.color;
-          row.appendChild(rowDot);
+          row.appendChild(createAvatarEl(member, "dot"));
           var label = el("span", "name", (t.icon ? t.icon + " " : "") + t.title + " · " + recurrence.recurrenceLabel(t));
           row.appendChild(label);
 
@@ -1035,8 +1075,59 @@
     nameField.appendChild(nameInput);
     body.appendChild(nameField);
 
+    var selectedPhoto = member ? (member.photo || null) : null;
+
+    var photoField = el("div", "field");
+    photoField.appendChild(el("label", null, "Profilbild"));
+    var photoRow = el("div", "photo-picker-row");
+    var previewWrap = el("div");
+    var photoButtons = el("div", "photo-picker-buttons");
+
+    var fileInput = document.createElement("input");
+    fileInput.type = "file";
+    fileInput.accept = "image/*";
+    fileInput.className = "hidden";
+
+    var chooseBtn = document.createElement("button");
+    chooseBtn.type = "button";
+    chooseBtn.textContent = "Foto auswählen";
+    var removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Foto entfernen";
+
+    function updatePhotoPreview() {
+      previewWrap.innerHTML = "";
+      previewWrap.appendChild(createAvatarEl({ color: selectedColor, photo: selectedPhoto }, "photo-preview-avatar"));
+      removeBtn.classList.toggle("hidden", !selectedPhoto);
+    }
+
+    chooseBtn.addEventListener("click", function () { fileInput.click(); });
+    removeBtn.addEventListener("click", function () {
+      selectedPhoto = null;
+      fileInput.value = "";
+      updatePhotoPreview();
+    });
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      resizeImageFile(file).then(function (dataUrl) {
+        selectedPhoto = dataUrl;
+        updatePhotoPreview();
+      }).catch(function (err) {
+        console.error("Foto konnte nicht verarbeitet werden", err);
+      });
+    });
+
+    photoButtons.appendChild(chooseBtn);
+    photoButtons.appendChild(removeBtn);
+    photoRow.appendChild(previewWrap);
+    photoRow.appendChild(photoButtons);
+    photoField.appendChild(photoRow);
+    photoField.appendChild(fileInput);
+    body.appendChild(photoField);
+
     var colorField = el("div", "field");
-    colorField.appendChild(el("label", null, "Farbe"));
+    colorField.appendChild(el("label", null, "Farbe (falls kein Foto gewählt ist)"));
     var colorPicker = el("div", "color-picker");
     var selectedColor = member ? member.color : storage.MEMBER_COLORS[0];
     storage.MEMBER_COLORS.forEach(function (c) {
@@ -1047,10 +1138,12 @@
         selectedColor = c;
         colorPicker.querySelectorAll(".color-swatch").forEach(function (s) { s.classList.remove("active"); });
         swatch.classList.add("active");
+        updatePhotoPreview();
       });
       colorPicker.appendChild(swatch);
     });
     colorField.appendChild(colorPicker);
+    updatePhotoPreview();
     body.appendChild(colorField);
 
     var actions = el("div", "dialog-actions");
@@ -1080,9 +1173,9 @@
     saveBtn.addEventListener("click", function () {
       if (saveBtn.disabled) return;
       if (isEdit) {
-        storage.updateMember(member.id, { name: nameInput.value, color: selectedColor });
+        storage.updateMember(member.id, { name: nameInput.value, color: selectedColor, photo: selectedPhoto });
       } else {
-        storage.addMember(nameInput.value, selectedColor);
+        storage.addMember(nameInput.value, selectedColor, selectedPhoto);
       }
       dlg.close();
       renderBoard();

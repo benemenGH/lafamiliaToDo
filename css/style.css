@@ -120,6 +120,8 @@ input, select {
   flex-shrink: 0;
   border: 2px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  display: block;
+  object-fit: cover;
 }
 
 .column-name {
@@ -552,6 +554,49 @@ input, select {
   border-color: #2b3242;
 }
 
+.photo-picker-row {
+  display: flex;
+  align-items: center;
+}
+
+.photo-picker-row > * + * {
+  margin-left: 14px;
+}
+
+.photo-preview-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: block;
+  object-fit: cover;
+  border: 2px solid rgba(0, 0, 0, 0.06);
+}
+
+.photo-picker-buttons {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.photo-picker-buttons > * {
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.photo-picker-buttons button {
+  border: 2px solid #e3e8ef;
+  background: #f9fafc;
+  color: #5b6472;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.photo-picker-buttons button:active {
+  background: #eef1f5;
+}
+
 .icon-picker {
   display: flex;
   flex-wrap: wrap;
@@ -610,6 +655,8 @@ input, select {
   width: 14px;
   height: 14px;
   border-radius: 50%;
+  display: block;
+  object-fit: cover;
 }
 
 .member-chip.active {
@@ -744,6 +791,8 @@ input, select {
   height: 22px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: block;
+  object-fit: cover;
 }
 
 .member-row .name {
@@ -793,6 +842,8 @@ input, select {
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+  display: block;
+  object-fit: cover;
 }
 
 /* ---------- Konfetti ---------- */

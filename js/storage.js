@@ -147,11 +147,12 @@ var LFT = window.LFT || {};
     return MEMBER_COLORS[state.members.length % MEMBER_COLORS.length];
   }
 
-  function addMember(name, color) {
+  function addMember(name, color, photo) {
     var member = {
       id: uid(),
       name: name.trim(),
       color: color || nextColor(),
+      photo: photo || null,
       createdAt: Date.now()
     };
     state.members.push(member);
@@ -164,6 +165,7 @@ var LFT = window.LFT || {};
     if (!member) return null;
     if (typeof patch.name === "string") member.name = patch.name.trim();
     if (typeof patch.color === "string") member.color = patch.color;
+    if (typeof patch.photo !== "undefined") member.photo = patch.photo || null;
     persist();
     return member;
   }
