@@ -24,7 +24,18 @@ body {
 
 button {
   font-family: inherit;
+  font-size: inherit;
+  line-height: normal;
   cursor: pointer;
+  margin: 0;
+  /* iOS gibt <button>-Elementen unsichtbares natives Innenpolster/Chrome,
+     das die sichtbare Position gegenüber der tatsächlichen Tippfläche
+     verschieben kann (besonders spürbar bei eng gepackten Tastenfeldern
+     wie dem PIN-Pad) - hier vollständig deaktiviert. */
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 input, select {
@@ -110,7 +121,7 @@ input, select {
 }
 
 .column-header > * + * {
-  margin-left: 16px;
+  margin-left: 24px;
 }
 
 .column-avatar {
@@ -646,6 +657,22 @@ input, select {
   background: rgba(46, 123, 196, 0.12);
 }
 
+.icon-custom-input {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid #e3e8ef;
+  font-size: 22px;
+  text-align: center;
+  background: #f9fafc;
+}
+
+.icon-custom-input:focus {
+  outline: none;
+  border-color: #4f9dde;
+}
+
 .member-select {
   display: flex;
   flex-wrap: wrap;
@@ -782,6 +809,10 @@ input, select {
   font-weight: 700;
   padding: 16px 0;
   color: #2b3242;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pin-pad button:active {

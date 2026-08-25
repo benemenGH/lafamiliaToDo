@@ -693,21 +693,43 @@
     var body = el("div");
     body.appendChild(el("h2", null, mode === "edit" ? "Aufgabe bearbeiten" : "Neue Aufgabe"));
 
-    // Familienmitglied
+    // Familienmitglied(er) - beim Neuanlegen dürfen mehrere ausgewählt
+    // werden (legt die Aufgabe dann für jeden einzeln an); beim Bearbeiten
+    // bleibt es bei genau einem, da eine bestehende Aufgabe zu einer
+    // einzelnen Person gehört.
+    var allowMultipleMembers = mode !== "edit";
     var memberField = el("div", "field");
     memberField.appendChild(el("label", null, "Für wen?"));
+    if (allowMultipleMembers) {
+      memberField.appendChild(el("p", "dialog-hint", "Mehrfachauswahl möglich - legt die Aufgabe dann für jeden an."));
+    }
     var memberSelect = el("div", "member-select");
-    var selectedMemberId = task ? task.memberId : (opts.memberId || (members[0] && members[0].id));
+    var selectedMemberIds = task
+      ? [task.memberId]
+      : (opts.memberId ? [opts.memberId] : (members[0] ? [members[0].id] : []));
     members.forEach(function (m) {
       var chip = el("div", "member-chip");
       chip.setAttribute("data-id", m.id);
       chip.appendChild(createAvatarEl(m, "dot"));
       chip.appendChild(el("span", null, m.name));
-      if (m.id === selectedMemberId) chip.classList.add("active");
+      if (selectedMemberIds.indexOf(m.id) !== -1) chip.classList.add("active");
       chip.addEventListener("click", function () {
-        selectedMemberId = m.id;
-        memberSelect.querySelectorAll(".member-chip").forEach(function (c) { c.classList.remove("active"); });
-        chip.classList.add("active");
+        if (allowMultipleMembers) {
+          var pos = selectedMemberIds.indexOf(m.id);
+          if (pos === -1) {
+            selectedMemberIds.push(m.id);
+            chip.classList.add("active");
+          } else if (selectedMemberIds.length > 1) {
+            // mindestens ein Mitglied muss ausgewählt bleiben
+            selectedMemberIds.splice(pos, 1);
+            chip.classList.remove("active");
+          }
+        } else {
+          selectedMemberIds = [m.id];
+          memberSelect.querySelectorAll(".member-chip").forEach(function (c) { c.classList.remove("active"); });
+          chip.classList.add("active");
+        }
+        updateValidity();
       });
       memberSelect.appendChild(chip);
     });
@@ -728,31 +750,53 @@
     // Symbol (hilft Kindern, die noch nicht/schlecht lesen können)
     var iconField = el("div", "field");
     iconField.appendChild(el("label", null, "Symbol"));
+    iconField.appendChild(el("p", "dialog-hint", "Schnellauswahl oder eigenes Emoji über die Emoji-Tastatur eingeben."));
     var iconPicker = el("div", "icon-picker");
     var selectedIcon = task ? (task.icon || "") : "";
+
+    var iconInput = document.createElement("input");
+    iconInput.type = "text";
+    iconInput.className = "icon-custom-input";
+    iconInput.placeholder = "🙂";
+    iconInput.maxLength = 8;
+    iconInput.value = selectedIcon;
+
+    function markActiveIcon() {
+      iconPicker.querySelectorAll("button").forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-icon") === selectedIcon);
+      });
+    }
+
     var noneBtn = document.createElement("button");
     noneBtn.type = "button";
     noneBtn.textContent = "–";
-    if (!selectedIcon) noneBtn.classList.add("active");
+    noneBtn.setAttribute("data-icon", "");
     noneBtn.addEventListener("click", function () {
       selectedIcon = "";
-      iconPicker.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
-      noneBtn.classList.add("active");
+      iconInput.value = "";
+      markActiveIcon();
     });
     iconPicker.appendChild(noneBtn);
     TASK_ICONS.forEach(function (icon) {
       var btn = document.createElement("button");
       btn.type = "button";
       btn.textContent = icon;
-      if (icon === selectedIcon) btn.classList.add("active");
+      btn.setAttribute("data-icon", icon);
       btn.addEventListener("click", function () {
         selectedIcon = icon;
-        iconPicker.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
-        btn.classList.add("active");
+        iconInput.value = icon;
+        markActiveIcon();
       });
       iconPicker.appendChild(btn);
     });
+    markActiveIcon();
     iconField.appendChild(iconPicker);
+
+    iconInput.addEventListener("input", function () {
+      selectedIcon = iconInput.value.trim();
+      markActiveIcon();
+    });
+    iconField.appendChild(iconInput);
     body.appendChild(iconField);
 
     // Wiederholung
@@ -878,7 +922,7 @@
     }
 
     function updateValidity() {
-      var valid = titleInput.value.trim().length > 0 && !!selectedMemberId;
+      var valid = titleInput.value.trim().length > 0 && selectedMemberIds.length > 0;
       if (selectedType === "weekly") valid = valid && selectedWeekdays.length > 0;
       saveBtn.disabled = !valid;
     }
@@ -895,8 +939,7 @@
 
     saveBtn.addEventListener("click", function () {
       if (saveBtn.disabled) return;
-      var payload = {
-        memberId: selectedMemberId,
+      var basePayload = {
         title: titleInput.value,
         icon: selectedIcon,
         type: selectedType,
@@ -904,9 +947,20 @@
         timesPerDay: selectedTimesPerDay
       };
       if (mode === "edit") {
-        storage.updateTask(task.id, payload);
+        basePayload.memberId = selectedMemberIds[0];
+        storage.updateTask(task.id, basePayload);
       } else {
-        storage.addTask(payload);
+        selectedMemberIds.forEach(function (memberId) {
+          var payload = {
+            memberId: memberId,
+            title: basePayload.title,
+            icon: basePayload.icon,
+            type: basePayload.type,
+            weekdays: basePayload.weekdays.slice(),
+            timesPerDay: basePayload.timesPerDay
+          };
+          storage.addTask(payload);
+        });
       }
       dlg.close();
       renderBoard();
