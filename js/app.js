@@ -883,44 +883,56 @@
     function renderTaskList() {
       taskList.innerHTML = "";
       var members = storage.getMembers();
-      var membersById = {};
-      members.forEach(function (m) { membersById[m.id] = m; });
-      var tasks = storage.getTasks().slice().sort(function (a, b) { return a.createdAt - b.createdAt; });
 
-      if (tasks.length === 0) {
-        taskList.appendChild(el("p", "dialog-hint", "Noch keine Aufgaben angelegt."));
+      if (members.length === 0) {
+        taskList.appendChild(el("p", "dialog-hint", "Noch keine Familienmitglieder angelegt."));
         return;
       }
 
-      tasks.forEach(function (t) {
-        var owner = membersById[t.memberId];
-        var row = el("div", "member-row");
+      members.forEach(function (member) {
+        var heading = el("div", "task-list-member-heading");
         var dot = el("span", "dot");
-        dot.style.background = owner ? owner.color : "#ccc";
-        row.appendChild(dot);
-        var label = el("span", "name", (t.icon ? t.icon + " " : "") + t.title + " · " + (owner ? owner.name : "?") + " · " + recurrence.recurrenceLabel(t));
-        row.appendChild(label);
+        dot.style.background = member.color;
+        heading.appendChild(dot);
+        heading.appendChild(el("span", null, member.name));
+        taskList.appendChild(heading);
 
-        var editBtn = document.createElement("button");
-        editBtn.textContent = "✏️";
-        editBtn.addEventListener("click", function () {
-          dlg.close();
-          openTaskDialog({ mode: "edit", task: t, onDone: openSettingsDialog });
+        var memberTasks = storage.getTasksForMember(member.id);
+
+        if (memberTasks.length === 0) {
+          taskList.appendChild(el("p", "dialog-hint", "Noch keine Aufgaben."));
+          return;
+        }
+
+        memberTasks.forEach(function (t) {
+          var row = el("div", "member-row");
+          var rowDot = el("span", "dot");
+          rowDot.style.background = member.color;
+          row.appendChild(rowDot);
+          var label = el("span", "name", (t.icon ? t.icon + " " : "") + t.title + " · " + recurrence.recurrenceLabel(t));
+          row.appendChild(label);
+
+          var editBtn = document.createElement("button");
+          editBtn.textContent = "✏️";
+          editBtn.addEventListener("click", function () {
+            dlg.close();
+            openTaskDialog({ mode: "edit", task: t, onDone: openSettingsDialog });
+          });
+          row.appendChild(editBtn);
+
+          var delBtn = document.createElement("button");
+          delBtn.textContent = "🗑️";
+          delBtn.addEventListener("click", function () {
+            if (window.confirm("Aufgabe \"" + t.title + "\" wirklich löschen?")) {
+              storage.deleteTask(t.id);
+              renderTaskList();
+              renderBoard();
+            }
+          });
+          row.appendChild(delBtn);
+
+          taskList.appendChild(row);
         });
-        row.appendChild(editBtn);
-
-        var delBtn = document.createElement("button");
-        delBtn.textContent = "🗑️";
-        delBtn.addEventListener("click", function () {
-          if (window.confirm("Aufgabe \"" + t.title + "\" wirklich löschen?")) {
-            storage.deleteTask(t.id);
-            renderTaskList();
-            renderBoard();
-          }
-        });
-        row.appendChild(delBtn);
-
-        taskList.appendChild(row);
       });
     }
     renderTaskList();
