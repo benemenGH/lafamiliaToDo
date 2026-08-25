@@ -110,7 +110,7 @@ input, select {
 }
 
 .column-header > * + * {
-  margin-left: 10px;
+  margin-left: 16px;
 }
 
 .column-avatar {
