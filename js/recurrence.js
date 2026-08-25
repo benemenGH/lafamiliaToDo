@@ -28,16 +28,15 @@ var LFT = window.LFT || {};
     return true;
   }
 
-  // Setzt den Haken zurück, wenn die Aufgabe wiederkehrend ist und seit dem
+  // Setzt alle Haken einer wiederkehrenden Aufgabe zurück, wenn seit dem
   // letzten Abhaken ein neuer Tag begonnen hat. Gibt true zurück, wenn sich
   // etwas geändert hat (Aufrufer sollte dann speichern).
   function resetIfStale(task, todayString) {
     if (task.type === "once") return false;
-    if (task.done && task.lastDoneDate !== todayString) {
-      task.done = false;
-      return true;
-    }
-    return false;
+    if (task.lastResetDate === todayString) return false;
+    for (var i = 0; i < task.doneFlags.length; i++) task.doneFlags[i] = false;
+    task.lastResetDate = todayString;
+    return true;
   }
 
   function applyDailyReset(tasks, todayString) {
@@ -48,14 +47,22 @@ var LFT = window.LFT || {};
     return changed;
   }
 
+  function isFullyDone(task) {
+    return task.doneFlags.length > 0 && task.doneFlags.every(function (f) { return f; });
+  }
+
   function recurrenceLabel(task) {
-    if (task.type === "once") return "Einmalig";
-    if (task.type === "daily") return "Täglich";
-    if (task.type === "weekly") {
+    var base;
+    if (task.type === "once") base = "Einmalig";
+    else if (task.type === "daily") base = "Täglich";
+    else if (task.type === "weekly") {
       var days = task.weekdays.slice().sort();
-      return days.map(function (i) { return WEEKDAY_LABELS[i]; }).join(", ");
+      base = days.map(function (i) { return WEEKDAY_LABELS[i]; }).join(", ");
+    } else {
+      base = "";
     }
-    return "";
+    if (task.timesPerDay > 1) base += " · " + task.timesPerDay + "×";
+    return base;
   }
 
   LFT.recurrence = {
@@ -65,6 +72,7 @@ var LFT = window.LFT || {};
     isVisibleToday: isVisibleToday,
     resetIfStale: resetIfStale,
     applyDailyReset: applyDailyReset,
+    isFullyDone: isFullyDone,
     recurrenceLabel: recurrenceLabel
   };
 

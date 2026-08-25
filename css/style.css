@@ -211,6 +211,54 @@ input, select {
   transform: scale(0.9);
 }
 
+.task-check-slot {
+  flex-shrink: 0;
+}
+
+.task-check-multi {
+  display: flex;
+}
+
+.task-check-multi > * + * {
+  margin-left: 4px;
+}
+
+.task-check-mini {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #cfd8e3;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.task-check-mini .task-check-icon {
+  opacity: 0;
+  transform: scale(0.4);
+  transition: all 0.15s ease;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.task-check-mini.done {
+  background: #4caf7d;
+  border-color: #4caf7d;
+}
+
+.task-check-mini.done .task-check-icon {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.task-check-mini:active {
+  transform: scale(0.9);
+}
+
 .task-icon {
   flex-shrink: 0;
   width: 40px;

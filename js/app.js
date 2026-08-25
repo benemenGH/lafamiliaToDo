@@ -11,8 +11,8 @@
 
   var TASK_ICONS = [
     "🦷", "🛏️", "🧸", "📚", "🎒", "🍽️", "🧹", "🧺",
-    "🐶", "🚿", "👕", "🚮", "🥤", "🌱", "🎨", "⚽",
-    "📖", "🚲", "🛁", "⭐"
+    "🐶", "🐔", "🚿", "👕", "🚮", "🥤", "🌱", "🎨",
+    "⚽", "📖", "🚲", "🛁", "⭐"
   ];
 
   // ---------- Init ----------
@@ -110,8 +110,10 @@
     });
 
     visibleTasks.sort(function (a, b) {
-      if (a.done !== b.done) return a.done ? 1 : -1;
-      return a.createdAt - b.createdAt;
+      var aDone = recurrence.isFullyDone(a);
+      var bDone = recurrence.isFullyDone(b);
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return (a.order || 0) - (b.order || 0);
     });
 
     if (visibleTasks.length === 0) {
@@ -138,13 +140,13 @@
     var tpl = document.getElementById("tpl-task-card");
     var node = tpl.content.cloneNode(true);
     var card = node.querySelector(".task-card");
-    var checkBtn = node.querySelector(".task-check");
+    var checkSlot = node.querySelector(".task-check-slot");
     var iconEl = node.querySelector(".task-icon");
     var titleEl = node.querySelector(".task-title");
     var metaEl = node.querySelector(".task-meta");
     var editBtn = node.querySelector(".task-edit-btn");
 
-    if (task.done) card.classList.add("done");
+    if (recurrence.isFullyDone(task)) card.classList.add("done");
     if (task.icon) {
       iconEl.textContent = task.icon;
       iconEl.classList.remove("hidden");
@@ -152,9 +154,7 @@
     titleEl.textContent = task.title;
     metaEl.textContent = recurrence.recurrenceLabel(task);
 
-    checkBtn.addEventListener("click", function () {
-      toggleTaskDone(task.id, card, checkBtn);
-    });
+    buildCheckControls(checkSlot, task, card);
 
     editBtn.addEventListener("click", function () {
       requireUnlock(function () {
@@ -165,23 +165,65 @@
     return card;
   }
 
-  function toggleTaskDone(taskId, cardEl, checkEl) {
+  // Baut je nach timesPerDay entweder einen großen Haken-Button (1x) oder
+  // mehrere kleine Kreise (mehrmals täglich, z.B. Zähneputzen morgens/abends).
+  function buildCheckControls(container, task, card) {
+    var n = task.timesPerDay || 1;
+
+    if (n <= 1) {
+      var btn = document.createElement("button");
+      btn.className = "task-check";
+      btn.setAttribute("aria-label", "Aufgabe abhaken");
+      var icon = document.createElement("span");
+      icon.className = "task-check-icon";
+      icon.textContent = "✓";
+      btn.appendChild(icon);
+      if (task.doneFlags[0]) btn.classList.add("done");
+      btn.addEventListener("click", function () {
+        toggleTaskFlag(task.id, 0, card, btn);
+      });
+      container.appendChild(btn);
+      return;
+    }
+
+    var group = document.createElement("div");
+    group.className = "task-check-multi";
+    for (var i = 0; i < n; i++) {
+      (function (index) {
+        var mini = document.createElement("button");
+        mini.className = "task-check-mini";
+        mini.setAttribute("aria-label", "Aufgabe abhaken (" + (index + 1) + "/" + n + ")");
+        var mIcon = document.createElement("span");
+        mIcon.className = "task-check-icon";
+        mIcon.textContent = "✓";
+        mini.appendChild(mIcon);
+        if (task.doneFlags[index]) mini.classList.add("done");
+        mini.addEventListener("click", function () {
+          toggleTaskFlag(task.id, index, card, mini);
+        });
+        group.appendChild(mini);
+      })(i);
+    }
+    container.appendChild(group);
+  }
+
+  function toggleTaskFlag(taskId, index, cardEl, btnEl) {
     var tasks = storage.getTasks();
     var task = tasks.find(function (t) { return t.id === taskId; });
     if (!task) return;
 
-    var newDone = !task.done;
-    storage.setTaskDone(taskId, newDone, recurrence.todayStr());
+    var newValue = !task.doneFlags[index];
+    storage.setTaskFlag(taskId, index, newValue, recurrence.todayStr());
 
-    if (newDone) {
-      cardEl.classList.add("done");
-      confetti.burst(checkEl);
+    if (newValue) {
+      btnEl.classList.add("done");
+      confetti.burst(btnEl);
     } else {
-      cardEl.classList.remove("done");
+      btnEl.classList.remove("done");
     }
 
     // Nach kurzer Verzögerung neu sortieren/rendern, damit die Konfetti-Position noch stimmt
-    setTimeout(renderBoard, newDone ? 550 : 0);
+    setTimeout(renderBoard, newValue ? 550 : 0);
   }
 
   // ---------- Dialog Helpers ----------
@@ -460,6 +502,7 @@
         typeSeg.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
         btn.classList.add("active");
         weekdayField.classList.toggle("hidden", selectedType !== "weekly");
+        freqField.classList.toggle("hidden", selectedType === "once");
         updateValidity();
       });
       typeSeg.appendChild(btn);
@@ -494,6 +537,27 @@
     weekdayField.appendChild(weekdayPicker);
     body.appendChild(weekdayField);
 
+    // Häufigkeit pro Tag (z.B. Zähneputzen morgens UND abends)
+    var freqField = el("div", "field");
+    if (selectedType === "once") freqField.classList.add("hidden");
+    freqField.appendChild(el("label", null, "Wie oft am Tag?"));
+    var freqSeg = el("div", "segmented");
+    var selectedTimesPerDay = task ? (task.timesPerDay || 1) : 1;
+    [1, 2, 3, 4].forEach(function (n) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = n + "×";
+      if (n === selectedTimesPerDay) btn.classList.add("active");
+      btn.addEventListener("click", function () {
+        selectedTimesPerDay = n;
+        freqSeg.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+      });
+      freqSeg.appendChild(btn);
+    });
+    freqField.appendChild(freqSeg);
+    body.appendChild(freqField);
+
     // Buttons
     var actions = el("div", "dialog-actions");
     var cancelBtn = document.createElement("button");
@@ -507,6 +571,27 @@
     body.appendChild(actions);
 
     if (mode === "edit") {
+      var reorderRow = el("div", "dialog-actions");
+      reorderRow.style.marginTop = "10px";
+      var upBtn = document.createElement("button");
+      upBtn.className = "secondary-btn";
+      upBtn.textContent = "⬆ Nach oben";
+      var downBtn = document.createElement("button");
+      downBtn.className = "secondary-btn";
+      downBtn.textContent = "⬇ Nach unten";
+      reorderRow.appendChild(upBtn);
+      reorderRow.appendChild(downBtn);
+      body.appendChild(reorderRow);
+
+      upBtn.addEventListener("click", function () {
+        storage.moveTaskUp(task.id);
+        renderBoard();
+      });
+      downBtn.addEventListener("click", function () {
+        storage.moveTaskDown(task.id);
+        renderBoard();
+      });
+
       var deleteBtn = document.createElement("button");
       deleteBtn.className = "danger-btn";
       deleteBtn.textContent = "Aufgabe löschen";
@@ -546,7 +631,8 @@
         title: titleInput.value,
         icon: selectedIcon,
         type: selectedType,
-        weekdays: selectedWeekdays
+        weekdays: selectedWeekdays,
+        timesPerDay: selectedTimesPerDay
       };
       if (mode === "edit") {
         storage.updateTask(task.id, payload);

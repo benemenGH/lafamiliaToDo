@@ -25,6 +25,67 @@ var LFT = window.LFT || {};
     };
   }
 
+  function clampTimesPerDay(n) {
+    var v = parseInt(n, 10);
+    if (!v || v < 1) v = 1;
+    if (v > 4) v = 4;
+    return v;
+  }
+
+  function newDoneFlags(n) {
+    var flags = [];
+    for (var i = 0; i < n; i++) flags.push(false);
+    return flags;
+  }
+
+  // Bringt einen (evtl. aus einer älteren Version stammenden) Task auf die
+  // aktuelle Form: timesPerDay/doneFlags statt done/lastDoneDate, order-Feld.
+  function normalizeTask(t) {
+    var timesPerDay = t.type === "once" ? 1 : clampTimesPerDay(t.timesPerDay);
+    var doneFlags = t.doneFlags;
+    if (!doneFlags) {
+      doneFlags = newDoneFlags(timesPerDay);
+      if (t.done) doneFlags[0] = true;
+    } else if (doneFlags.length !== timesPerDay) {
+      var resized = [];
+      for (var i = 0; i < timesPerDay; i++) resized.push(!!doneFlags[i]);
+      doneFlags = resized;
+    }
+    return {
+      id: t.id,
+      memberId: t.memberId,
+      title: t.title,
+      icon: t.icon || null,
+      type: t.type,
+      weekdays: t.weekdays || [],
+      timesPerDay: timesPerDay,
+      doneFlags: doneFlags,
+      lastResetDate: t.lastResetDate || t.lastDoneDate || null,
+      order: typeof t.order === "number" ? t.order : null,
+      createdAt: t.createdAt || Date.now()
+    };
+  }
+
+  // Vergibt eine order-Zahl an Tasks, die noch keine haben (z.B. aus einer
+  // älteren Version), auf Basis der bisherigen Erstellungsreihenfolge.
+  function assignMissingOrder(tasks) {
+    var byMember = {};
+    tasks.forEach(function (t) {
+      if (!byMember[t.memberId]) byMember[t.memberId] = [];
+      byMember[t.memberId].push(t);
+    });
+    Object.keys(byMember).forEach(function (memberId) {
+      var list = byMember[memberId];
+      var needsAssign = list.some(function (t) { return typeof t.order !== "number"; });
+      if (!needsAssign) return;
+      list.sort(function (a, b) {
+        if (typeof a.order === "number" && typeof b.order === "number") return a.order - b.order;
+        return (a.createdAt || 0) - (b.createdAt || 0);
+      });
+      list.forEach(function (t, idx) { t.order = idx; });
+    });
+  }
+
   function loadData() {
     var raw;
     try {
@@ -42,7 +103,8 @@ var LFT = window.LFT || {};
       }
       var data = defaultData();
       data.members = parsed.members || [];
-      data.tasks = parsed.tasks || [];
+      data.tasks = (parsed.tasks || []).map(normalizeTask);
+      assignMissingOrder(data.tasks);
       data.pinHash = parsed.pinHash || null;
       data.pinSalt = parsed.pinSalt || null;
       return data;
@@ -115,10 +177,21 @@ var LFT = window.LFT || {};
   }
 
   function getTasksForMember(memberId) {
-    return state.tasks.filter(function (t) { return t.memberId === memberId; });
+    return state.tasks
+      .filter(function (t) { return t.memberId === memberId; })
+      .sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+  }
+
+  function nextOrderForMember(memberId) {
+    var max = -1;
+    state.tasks.forEach(function (t) {
+      if (t.memberId === memberId && t.order > max) max = t.order;
+    });
+    return max + 1;
   }
 
   function addTask(input) {
+    var timesPerDay = input.type === "once" ? 1 : clampTimesPerDay(input.timesPerDay);
     var task = {
       id: uid(),
       memberId: input.memberId,
@@ -126,8 +199,10 @@ var LFT = window.LFT || {};
       icon: input.icon || null,
       type: input.type,
       weekdays: input.type === "weekly" ? (input.weekdays || []) : [],
-      done: false,
-      lastDoneDate: null,
+      timesPerDay: timesPerDay,
+      doneFlags: newDoneFlags(timesPerDay),
+      lastResetDate: null,
+      order: nextOrderForMember(input.memberId),
       createdAt: Date.now()
     };
     state.tasks.push(task);
@@ -140,10 +215,22 @@ var LFT = window.LFT || {};
     if (!task) return null;
     if (typeof patch.title === "string") task.title = patch.title.trim();
     if (typeof patch.icon !== "undefined") task.icon = patch.icon || null;
-    if (typeof patch.memberId === "string") task.memberId = patch.memberId;
+    if (typeof patch.memberId === "string" && patch.memberId !== task.memberId) {
+      task.memberId = patch.memberId;
+      task.order = nextOrderForMember(patch.memberId);
+    }
     if (typeof patch.type === "string") {
       task.type = patch.type;
       task.weekdays = patch.type === "weekly" ? (patch.weekdays || []) : [];
+    }
+    var effectiveType = patch.type || task.type;
+    var newTimesPerDay = effectiveType === "once" ? 1 : clampTimesPerDay(patch.timesPerDay || task.timesPerDay);
+    if (newTimesPerDay !== task.timesPerDay) {
+      var oldFlags = task.doneFlags || [];
+      var flags = [];
+      for (var i = 0; i < newTimesPerDay; i++) flags.push(!!oldFlags[i]);
+      task.doneFlags = flags;
+      task.timesPerDay = newTimesPerDay;
     }
     persist();
     return task;
@@ -154,13 +241,37 @@ var LFT = window.LFT || {};
     persist();
   }
 
-  function setTaskDone(id, done, todayStr) {
+  function setTaskFlag(id, index, done, todayStr) {
     var task = state.tasks.find(function (t) { return t.id === id; });
     if (!task) return null;
-    task.done = done;
-    task.lastDoneDate = done ? todayStr : task.lastDoneDate;
+    task.doneFlags[index] = done;
+    task.lastResetDate = todayStr;
     persist();
     return task;
+  }
+
+  // Verschiebt eine Aufgabe innerhalb der Reihenfolge ihres Familienmitglieds.
+  // direction: -1 = nach oben, +1 = nach unten
+  function moveTask(id, direction) {
+    var task = state.tasks.find(function (t) { return t.id === id; });
+    if (!task) return;
+    var siblings = getTasksForMember(task.memberId);
+    var idx = siblings.findIndex(function (t) { return t.id === id; });
+    var newIdx = idx + direction;
+    if (idx === -1 || newIdx < 0 || newIdx >= siblings.length) return;
+    var other = siblings[newIdx];
+    var tmp = task.order;
+    task.order = other.order;
+    other.order = tmp;
+    persist();
+  }
+
+  function moveTaskUp(id) {
+    moveTask(id, -1);
+  }
+
+  function moveTaskDown(id) {
+    moveTask(id, 1);
   }
 
   function saveTasksBulk() {
@@ -237,7 +348,9 @@ var LFT = window.LFT || {};
     addTask: addTask,
     updateTask: updateTask,
     deleteTask: deleteTask,
-    setTaskDone: setTaskDone,
+    setTaskFlag: setTaskFlag,
+    moveTaskUp: moveTaskUp,
+    moveTaskDown: moveTaskDown,
     saveTasksBulk: saveTasksBulk,
     runDailyReset: runDailyReset,
     hasPin: hasPin,
