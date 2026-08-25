@@ -120,10 +120,6 @@ input, select {
   flex-shrink: 0;
 }
 
-.column-header > * + * {
-  margin-left: 24px;
-}
-
 .column-avatar {
   width: 34px;
   height: 34px;
@@ -138,7 +134,7 @@ input, select {
 .column-name {
   font-size: 18px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 0 24px;
   color: #2b3242;
 }
 
