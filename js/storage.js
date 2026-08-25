@@ -78,10 +78,14 @@ var LFT = window.LFT || {};
       var list = byMember[memberId];
       var needsAssign = list.some(function (t) { return typeof t.order !== "number"; });
       if (!needsAssign) return;
-      list.sort(function (a, b) {
-        if (typeof a.order === "number" && typeof b.order === "number") return a.order - b.order;
-        return (a.createdAt || 0) - (b.createdAt || 0);
-      });
+      // Ein einzelner Sortier-Schlüssel pro Task, statt je nach Paarung
+      // unterschiedlich zu vergleichen - sonst ist der Vergleich nicht
+      // transitiv und das Ergebnis je nach Engine unterschiedlich, wenn
+      // manche Tasks schon eine order haben und andere nicht.
+      function sortKey(t) {
+        return typeof t.order === "number" ? t.order : 1e15 + (t.createdAt || 0);
+      }
+      list.sort(function (a, b) { return sortKey(a) - sortKey(b); });
       list.forEach(function (t, idx) { t.order = idx; });
     });
   }

@@ -1,7 +1,7 @@
 // Service Worker: cached alle App-Dateien beim ersten Laden, danach läuft die App komplett offline.
 // CACHE_NAME bei jeder inhaltlichen Änderung an den App-Dateien hochzählen (v2, v3, ...),
 // damit der Browser den Service Worker als geändert erkennt und neu installiert.
-var CACHE_NAME = "familien-todo-v11";
+var CACHE_NAME = "familien-todo-v12";
 
 var ASSETS = [
   "./",

@@ -90,7 +90,21 @@
 
   // ---------- Board Rendering ----------
 
+  // Während eine Karte aktiv gezogen wird, darf renderBoard() nicht
+  // dazwischenfunken (es würde den Original-Container der gezogenen Karte
+  // zerstören). Externe Aufrufe (Checkbox-Timeout, 60s-Intervall,
+  // visibilitychange) werden stattdessen vorgemerkt und laufen automatisch
+  // nach, sobald der Drag beendet ist.
+  var boardDragActive = false;
+  var boardRenderPending = false;
+
   function renderBoard() {
+    if (boardDragActive) {
+      boardRenderPending = true;
+      return;
+    }
+    boardRenderPending = false;
+
     var members = storage.getMembers();
     var board = document.getElementById("board");
     var emptyState = document.getElementById("empty-state");
@@ -234,6 +248,7 @@
     }
 
     function engage() {
+      boardDragActive = true;
       drag.container.insertBefore(drag.placeholder, cardEl);
       cardEl.classList.add("dragging");
       cardEl.style.position = "fixed";
@@ -247,6 +262,13 @@
 
     function onMove(e) {
       if (!drag) return;
+      // Sofort verhindern, dass diese Bewegung stattdessen die Spalte
+      // scrollt - touch-action:none (CSS) hilft dabei auf iOS 12 nicht,
+      // da Safari das erst ab Version 13 unterstützt. Muss deshalb schon
+      // VOR der Bewegungs-Schwelle laufen, sonst kann die native
+      // Scroll-Geste den Zug kapern, bevor wir überhaupt "engagen".
+      if (e.cancelable) e.preventDefault();
+
       var y = getEventY(e);
       var deltaY = y - drag.startY;
 
@@ -255,7 +277,6 @@
         engage();
       }
 
-      if (e.cancelable) e.preventDefault();
       cardEl.style.top = (drag.top + deltaY) + "px";
 
       var siblings = Array.prototype.slice.call(
@@ -296,13 +317,35 @@
         cardEl.style.width = "";
         cardEl.style.zIndex = "";
 
-        var orderedIds = Array.prototype.slice.call(
+        var visibleIds = Array.prototype.slice.call(
           container.querySelectorAll(".task-card")
         ).map(function (el) { return el.getAttribute("data-task-id"); });
-        storage.reorderTasksForMember(task.memberId, orderedIds);
-        renderBoard();
+
+        // Nur die heute sichtbaren Aufgaben werden gezogen/neu sortiert.
+        // Mit den evtl. heute nicht sichtbaren Aufgaben desselben
+        // Mitglieds zusammenführen, statt deren Reihenfolge einfach zu
+        // überschreiben (sonst können zwei Aufgaben dieselbe order-Zahl
+        // bekommen).
+        var fullOrder = storage.getTasksForMember(task.memberId).map(function (t) { return t.id; });
+        var visibleSet = {};
+        visibleIds.forEach(function (id) { visibleSet[id] = true; });
+        var hiddenIds = fullOrder.filter(function (id) { return !visibleSet[id]; });
+        var insertAt = 0;
+        for (var i = 0; i < fullOrder.length; i++) {
+          if (visibleSet[fullOrder[i]]) break;
+          insertAt++;
+        }
+        var mergedOrder = hiddenIds.slice(0, insertAt)
+          .concat(visibleIds)
+          .concat(hiddenIds.slice(insertAt));
+
+        storage.reorderTasksForMember(task.memberId, mergedOrder);
       }
+
+      var needsRender = drag.engaged || boardRenderPending;
+      boardDragActive = false;
       drag = null;
+      if (needsRender) renderBoard();
     }
 
     handle.addEventListener("touchstart", onStart, { passive: true });
@@ -372,7 +415,7 @@
 
   // ---------- Dialog Helpers ----------
 
-  function openDialog(bodyEl) {
+  function openDialog(bodyEl, onClose) {
     var root = document.getElementById("overlay-root");
     // Es darf nie mehr als ein Dialog gleichzeitig offen sein - sonst können
     // sich Overlays stapeln und Taps landen auf dem falschen Fenster.
@@ -385,8 +428,16 @@
     dialog.appendChild(bodyEl);
     backdrop.appendChild(dialog);
 
+    var closed = false;
     function close() {
+      if (closed) return;
+      closed = true;
       if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      // Läuft IMMER, egal ob über einen Button oder per Tap auf den
+      // abgedunkelten Hintergrund geschlossen wurde - sonst bleiben z.B.
+      // PIN-Dialoge, die per Backdrop-Tap weggewischt wurden, "offen"
+      // hängen (requireUnlock würde nie wieder reagieren).
+      if (onClose) onClose();
     }
 
     backdrop.addEventListener("click", function (e) {
@@ -481,13 +532,16 @@
 
   function runPinVerifyFlow(onSuccess, onCancel) {
     var parts = buildPinPadBody("PIN eingeben", "Bitte gebt eure 4-stellige PIN ein.");
-    var dlg = openDialog(parts.body);
+    // onCancel läuft über openDialogs onClose, damit es auch greift, wenn
+    // der Dialog per Tap auf den abgedunkelten Hintergrund geschlossen wird
+    // (nicht nur über den Abbrechen-Button) - sonst bleibt requireUnlock
+    // dauerhaft "gesperrt" hängen.
+    var dlg = openDialog(parts.body, onCancel);
     var entered = "";
     var locked = false; // sperrt die Tastatur während der Prüfung gegen Doppel-Taps
 
     parts.cancelBtn.addEventListener("click", function () {
       dlg.close();
-      if (onCancel) onCancel();
     });
 
     parts.pad.addEventListener("click", function (e) {
@@ -527,13 +581,12 @@
     var firstPin = "";
 
     var parts = buildPinPadBody("PIN festlegen", "Legt eine 4-stellige PIN fest, damit nur Erwachsene Aufgaben ändern und Einstellungen bearbeiten können.");
-    var dlg = openDialog(parts.body);
+    var dlg = openDialog(parts.body, onCancel);
     var entered = "";
     var locked = false;
 
     parts.cancelBtn.addEventListener("click", function () {
       dlg.close();
-      if (onCancel) onCancel();
     });
 
     parts.pad.addEventListener("click", function (e) {
