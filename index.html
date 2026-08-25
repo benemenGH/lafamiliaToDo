@@ -19,17 +19,6 @@
 
 <div id="app">
 
-  <header class="app-header">
-    <div class="app-title">
-      <span class="app-title-icon" aria-hidden="true">✅</span>
-      <span>Familien To-Do</span>
-    </div>
-    <div class="app-header-right">
-      <span id="today-label" class="today-label"></span>
-      <button id="settings-btn" class="icon-btn" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
-    </div>
-  </header>
-
   <main id="board" class="board" aria-live="polite">
     <!-- Spalten werden hier per JS eingefügt -->
   </main>
@@ -42,6 +31,8 @@
   </div>
 
 </div>
+
+<button id="settings-btn" class="settings-fab" title="Einstellungen" aria-label="Einstellungen">⚙️</button>
 
 <!-- Overlay-Container für Dialoge -->
 <div id="overlay-root"></div>
@@ -65,6 +56,7 @@
     <button class="task-check" aria-label="Aufgabe abhaken">
       <span class="task-check-icon">✓</span>
     </button>
+    <span class="task-icon hidden" aria-hidden="true"></span>
     <div class="task-body">
       <div class="task-title"></div>
       <div class="task-meta"></div>

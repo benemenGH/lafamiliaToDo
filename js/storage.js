@@ -123,6 +123,7 @@ var LFT = window.LFT || {};
       id: uid(),
       memberId: input.memberId,
       title: input.title.trim(),
+      icon: input.icon || null,
       type: input.type,
       weekdays: input.type === "weekly" ? (input.weekdays || []) : [],
       done: false,
@@ -138,6 +139,7 @@ var LFT = window.LFT || {};
     var task = state.tasks.find(function (t) { return t.id === id; });
     if (!task) return null;
     if (typeof patch.title === "string") task.title = patch.title.trim();
+    if (typeof patch.icon !== "undefined") task.icon = patch.icon || null;
     if (typeof patch.memberId === "string") task.memberId = patch.memberId;
     if (typeof patch.type === "string") {
       task.type = patch.type;

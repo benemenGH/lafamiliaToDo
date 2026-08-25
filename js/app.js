@@ -9,20 +9,21 @@
   var UNLOCK_DURATION_MS = 10 * 60 * 1000;
   var unlockedUntil = 0;
 
-  var WEEKDAY_FULL = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
-  var MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+  var TASK_ICONS = [
+    "🦷", "🛏️", "🧸", "📚", "🎒", "🍽️", "🧹", "🧺",
+    "🐶", "🚿", "👕", "🚮", "🥤", "🌱", "🎨", "⚽",
+    "📖", "🚲", "🛁", "⭐"
+  ];
 
   // ---------- Init ----------
 
   function init() {
     storage.runDailyReset();
-    renderToday();
     renderBoard();
-    wireHeader();
+    wireButtons();
     registerServiceWorker();
 
     setInterval(function () {
-      renderToday();
       if (storage.runDailyReset()) {
         renderBoard();
       }
@@ -56,13 +57,7 @@
     }
   }
 
-  function renderToday() {
-    var el = document.getElementById("today-label");
-    var now = new Date();
-    el.textContent = WEEKDAY_FULL[recurrence.weekdayIndex(now)] + ", " + now.getDate() + ". " + MONTHS[now.getMonth()];
-  }
-
-  function wireHeader() {
+  function wireButtons() {
     document.getElementById("settings-btn").addEventListener("click", function () {
       requireUnlock(openSettingsDialog);
     });
@@ -144,11 +139,16 @@
     var node = tpl.content.cloneNode(true);
     var card = node.querySelector(".task-card");
     var checkBtn = node.querySelector(".task-check");
+    var iconEl = node.querySelector(".task-icon");
     var titleEl = node.querySelector(".task-title");
     var metaEl = node.querySelector(".task-meta");
     var editBtn = node.querySelector(".task-edit-btn");
 
     if (task.done) card.classList.add("done");
+    if (task.icon) {
+      iconEl.textContent = task.icon;
+      iconEl.classList.remove("hidden");
+    }
     titleEl.textContent = task.title;
     metaEl.textContent = recurrence.recurrenceLabel(task);
 
@@ -414,6 +414,36 @@
     titleField.appendChild(titleInput);
     body.appendChild(titleField);
 
+    // Symbol (hilft Kindern, die noch nicht/schlecht lesen können)
+    var iconField = el("div", "field");
+    iconField.appendChild(el("label", null, "Symbol"));
+    var iconPicker = el("div", "icon-picker");
+    var selectedIcon = task ? (task.icon || "") : "";
+    var noneBtn = document.createElement("button");
+    noneBtn.type = "button";
+    noneBtn.textContent = "–";
+    if (!selectedIcon) noneBtn.classList.add("active");
+    noneBtn.addEventListener("click", function () {
+      selectedIcon = "";
+      iconPicker.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+      noneBtn.classList.add("active");
+    });
+    iconPicker.appendChild(noneBtn);
+    TASK_ICONS.forEach(function (icon) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = icon;
+      if (icon === selectedIcon) btn.classList.add("active");
+      btn.addEventListener("click", function () {
+        selectedIcon = icon;
+        iconPicker.querySelectorAll("button").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+      });
+      iconPicker.appendChild(btn);
+    });
+    iconField.appendChild(iconPicker);
+    body.appendChild(iconField);
+
     // Wiederholung
     var typeField = el("div", "field");
     typeField.appendChild(el("label", null, "Wiederholung"));
@@ -514,6 +544,7 @@
       var payload = {
         memberId: selectedMemberId,
         title: titleInput.value,
+        icon: selectedIcon,
         type: selectedType,
         weekdays: selectedWeekdays
       };
@@ -611,7 +642,7 @@
         var dot = el("span", "dot");
         dot.style.background = owner ? owner.color : "#ccc";
         row.appendChild(dot);
-        var label = el("span", "name", t.title + " · " + (owner ? owner.name : "?") + " · " + recurrence.recurrenceLabel(t));
+        var label = el("span", "name", (t.icon ? t.icon + " " : "") + t.title + " · " + (owner ? owner.name : "?") + " · " + recurrence.recurrenceLabel(t));
         row.appendChild(label);
 
         var editBtn = document.createElement("button");

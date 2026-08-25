@@ -75,29 +75,38 @@ var LFT = window.LFT || {};
     return audioCtx;
   }
 
-  function playChime() {
-    var ctx = getAudioCtx();
-    if (!ctx) return;
-    if (ctx.state === "suspended" && ctx.resume) {
-      ctx.resume();
-    }
+  function scheduleChimeNotes(ctx) {
     var now = ctx.currentTime;
-    var notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+    var notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6 - kleiner Fanfaren-Dreiklang
     notes.forEach(function (freq, i) {
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = freq;
-      var start = now + i * 0.08;
-      var end = start + 0.22;
+      var start = now + i * 0.07;
+      var end = start + 0.26;
       gain.gain.setValueAtTime(0, start);
-      gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
+      gain.gain.linearRampToValueAtTime(0.28, start + 0.015);
       gain.gain.exponentialRampToValueAtTime(0.001, end);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(start);
       osc.stop(end + 0.02);
     });
+  }
+
+  function playChime() {
+    var ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === "suspended" && ctx.resume) {
+      // Auf iOS muss der Ton erst nach dem "resume" tatsächlich geplant werden,
+      // sonst bleibt er stumm, wenn der Context noch gesperrt war.
+      ctx.resume().then(function () {
+        scheduleChimeNotes(ctx);
+      });
+    } else {
+      scheduleChimeNotes(ctx);
+    }
   }
 
   LFT.confetti = {
