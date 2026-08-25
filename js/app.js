@@ -58,10 +58,18 @@
         });
       });
 
-      // Sobald eine neue Version des Service Workers übernimmt, Seite einmal
-      // neu laden, damit Updates ohne manuelles Doppel-Reload ankommen.
+      // Sobald eine neue Version des Service Workers die bisherige ablöst,
+      // Seite einmal neu laden, damit Updates ohne manuelles Doppel-Reload
+      // ankommen. Wichtig: beim allerersten Aufruf (noch kein Controller
+      // vorhanden) NICHT neu laden - sonst lädt die App bei jedem einzigen
+      // Start ungefragt neu und reißt z.B. eine gerade laufende PIN-Eingabe ab.
+      var hadControllerAtLoad = !!navigator.serviceWorker.controller;
       var reloadedForUpdate = false;
       navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (!hadControllerAtLoad) {
+          hadControllerAtLoad = true;
+          return;
+        }
         if (reloadedForUpdate) return;
         reloadedForUpdate = true;
         window.location.reload();
@@ -242,6 +250,10 @@
 
   function openDialog(bodyEl) {
     var root = document.getElementById("overlay-root");
+    // Es darf nie mehr als ein Dialog gleichzeitig offen sein - sonst können
+    // sich Overlays stapeln und Taps landen auf dem falschen Fenster.
+    while (root.firstChild) root.removeChild(root.firstChild);
+
     var backdrop = document.createElement("div");
     backdrop.className = "overlay-backdrop";
     var dialog = document.createElement("div");
@@ -270,21 +282,28 @@
 
   // ---------- PIN Flow ----------
 
+  var pinFlowActive = false;
+
   function requireUnlock(onUnlocked) {
     if (Date.now() < unlockedUntil) {
       onUnlocked();
       return;
     }
+    // Verhindert, dass ein doppelter Tap (z.B. auf "+ Aufgabe") zwei
+    // PIN-Dialoge gleichzeitig anstößt.
+    if (pinFlowActive) return;
+    pinFlowActive = true;
+
+    function unlockAndContinue() {
+      pinFlowActive = false;
+      unlockedUntil = Date.now() + UNLOCK_DURATION_MS;
+      onUnlocked();
+    }
+
     if (!storage.hasPin()) {
-      runPinSetupFlow(function () {
-        unlockedUntil = Date.now() + UNLOCK_DURATION_MS;
-        onUnlocked();
-      });
+      runPinSetupFlow(unlockAndContinue, function () { pinFlowActive = false; });
     } else {
-      runPinVerifyFlow(function () {
-        unlockedUntil = Date.now() + UNLOCK_DURATION_MS;
-        onUnlocked();
-      });
+      runPinVerifyFlow(unlockAndContinue, function () { pinFlowActive = false; });
     }
   }
 
@@ -336,14 +355,19 @@
     }
   }
 
-  function runPinVerifyFlow(onSuccess) {
+  function runPinVerifyFlow(onSuccess, onCancel) {
     var parts = buildPinPadBody("PIN eingeben", "Bitte gebt eure 4-stellige PIN ein.");
     var dlg = openDialog(parts.body);
     var entered = "";
+    var locked = false; // sperrt die Tastatur während der Prüfung gegen Doppel-Taps
 
-    parts.cancelBtn.addEventListener("click", dlg.close);
+    parts.cancelBtn.addEventListener("click", function () {
+      dlg.close();
+      if (onCancel) onCancel();
+    });
 
     parts.pad.addEventListener("click", function (e) {
+      if (locked) return;
       var key = e.target.getAttribute("data-key");
       if (!key) return;
       parts.error.textContent = "";
@@ -356,6 +380,7 @@
       entered += key;
       updateDots(parts.display, entered.length);
       if (entered.length === 4) {
+        locked = true;
         setTimeout(function () {
           storage.verifyPin(entered).then(function (ok) {
             if (ok) {
@@ -365,6 +390,7 @@
               parts.error.textContent = "Falsche PIN, versucht es erneut.";
               entered = "";
               updateDots(parts.display, 0);
+              locked = false;
             }
           });
         }, 120);
@@ -372,17 +398,22 @@
     });
   }
 
-  function runPinSetupFlow(onSuccess) {
+  function runPinSetupFlow(onSuccess, onCancel) {
     var step = "first";
     var firstPin = "";
 
     var parts = buildPinPadBody("PIN festlegen", "Legt eine 4-stellige PIN fest, damit nur Erwachsene Aufgaben ändern und Einstellungen bearbeiten können.");
     var dlg = openDialog(parts.body);
     var entered = "";
+    var locked = false;
 
-    parts.cancelBtn.addEventListener("click", dlg.close);
+    parts.cancelBtn.addEventListener("click", function () {
+      dlg.close();
+      if (onCancel) onCancel();
+    });
 
     parts.pad.addEventListener("click", function (e) {
+      if (locked) return;
       var key = e.target.getAttribute("data-key");
       if (!key) return;
       parts.error.textContent = "";
@@ -395,6 +426,7 @@
       entered += key;
       updateDots(parts.display, entered.length);
       if (entered.length === 4) {
+        locked = true;
         setTimeout(function () {
           if (step === "first") {
             firstPin = entered;
@@ -403,6 +435,7 @@
             parts.body.querySelector("h2").textContent = "PIN bestätigen";
             parts.body.querySelector(".dialog-hint").textContent = "Gebt die PIN zur Bestätigung erneut ein.";
             updateDots(parts.display, 0);
+            locked = false;
           } else {
             if (entered === firstPin) {
               storage.setPin(entered).then(function () {
@@ -417,6 +450,7 @@
               parts.body.querySelector("h2").textContent = "PIN festlegen";
               parts.body.querySelector(".dialog-hint").textContent = "Legt eine 4-stellige PIN fest, damit nur Erwachsene Aufgaben ändern und Einstellungen bearbeiten können.";
               updateDots(parts.display, 0);
+              locked = false;
             }
           }
         }, 120);
