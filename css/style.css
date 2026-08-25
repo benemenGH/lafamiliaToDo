@@ -479,6 +479,27 @@ input, select {
   border-color: #4f9dde;
 }
 
+.backup-textarea {
+  width: 100%;
+  height: 160px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid #e3e8ef;
+  font-size: 12px;
+  font-family: Menlo, Consolas, monospace;
+  background: #f9fafc;
+  color: #5b6472;
+  resize: none;
+  -webkit-user-select: text;
+  user-select: text;
+  margin-bottom: 10px;
+}
+
+.backup-textarea:focus {
+  outline: none;
+  border-color: #4f9dde;
+}
+
 .segmented {
   display: flex;
   flex-wrap: wrap;

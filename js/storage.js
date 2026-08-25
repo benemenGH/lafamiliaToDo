@@ -38,6 +38,16 @@ var LFT = window.LFT || {};
     return flags;
   }
 
+  function normalizeMember(m) {
+    return {
+      id: m.id,
+      name: (m.name || "").trim() || "?",
+      color: m.color || MEMBER_COLORS[0],
+      photo: m.photo || null,
+      createdAt: m.createdAt || Date.now()
+    };
+  }
+
   // Bringt einen (evtl. aus einer älteren Version stammenden) Task auf die
   // aktuelle Form: timesPerDay/doneFlags statt done/lastDoneDate, order-Feld.
   function normalizeTask(t) {
@@ -306,6 +316,59 @@ var LFT = window.LFT || {};
     return changed;
   }
 
+  // ---------- Sicherung (Export/Import) ----------
+
+  function getSummary() {
+    return { memberCount: state.members.length, taskCount: state.tasks.length };
+  }
+
+  function exportData() {
+    return JSON.stringify({
+      version: state.version,
+      exportedAt: new Date().toISOString(),
+      members: state.members,
+      tasks: state.tasks,
+      pinHash: state.pinHash,
+      pinSalt: state.pinSalt
+    }, null, 2);
+  }
+
+  // Ersetzt ALLE aktuellen Daten durch die im Text enthaltenen (kein
+  // Zusammenführen - das wäre bei doppelten Namen/IDs deutlich
+  // fehleranfälliger). Wirft einen Error mit verständlicher Meldung, wenn
+  // der Text kein gültiges Sicherungsformat ist.
+  function importData(text) {
+    var parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      throw new Error("Der eingefügte Text ist kein gültiges Sicherungsformat (kein gültiges JSON).");
+    }
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.members) || !Array.isArray(parsed.tasks)) {
+      throw new Error("Der eingefügte Text enthält keine gültigen Familien-To-Do-Daten.");
+    }
+
+    var newMembers = parsed.members
+      .filter(function (m) { return m && typeof m.id === "string" && typeof m.name === "string"; })
+      .map(normalizeMember);
+
+    var memberIds = {};
+    newMembers.forEach(function (m) { memberIds[m.id] = true; });
+
+    var newTasks = parsed.tasks
+      .filter(function (t) { return t && typeof t.id === "string" && typeof t.memberId === "string" && memberIds[t.memberId]; })
+      .map(normalizeTask);
+    assignMissingOrder(newTasks);
+
+    state.members = newMembers;
+    state.tasks = newTasks;
+    state.pinHash = typeof parsed.pinHash === "string" ? parsed.pinHash : null;
+    state.pinSalt = typeof parsed.pinSalt === "string" ? parsed.pinSalt : null;
+    persist();
+
+    return { memberCount: newMembers.length, taskCount: newTasks.length };
+  }
+
   // ---------- PIN ----------
 
   function hasPin() {
@@ -371,6 +434,9 @@ var LFT = window.LFT || {};
     reorderTasksForMember: reorderTasksForMember,
     saveTasksBulk: saveTasksBulk,
     runDailyReset: runDailyReset,
+    getSummary: getSummary,
+    exportData: exportData,
+    importData: importData,
     hasPin: hasPin,
     setPin: setPin,
     verifyPin: verifyPin,

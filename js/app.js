@@ -1048,6 +1048,30 @@
     securitySection.appendChild(changePinBtn);
     body.appendChild(securitySection);
 
+    var backupSection = el("div", "settings-section");
+    backupSection.appendChild(el("h3", null, "Sicherung"));
+    backupSection.appendChild(el("p", "dialog-hint", "Für einen Geräte-/App-Wechsel: alle Mitglieder und Aufgaben als Text sichern und später wieder einspielen."));
+    var exportBtn = document.createElement("button");
+    exportBtn.className = "secondary-btn";
+    exportBtn.style.width = "100%";
+    exportBtn.textContent = "Daten sichern";
+    exportBtn.addEventListener("click", function () {
+      dlg.close();
+      openExportDialog();
+    });
+    backupSection.appendChild(exportBtn);
+    var importBtn = document.createElement("button");
+    importBtn.className = "secondary-btn";
+    importBtn.style.width = "100%";
+    importBtn.style.marginTop = "8px";
+    importBtn.textContent = "Daten wiederherstellen";
+    importBtn.addEventListener("click", function () {
+      dlg.close();
+      openImportDialog();
+    });
+    backupSection.appendChild(importBtn);
+    body.appendChild(backupSection);
+
     var closeBtn = document.createElement("button");
     closeBtn.className = "primary-btn";
     closeBtn.style.width = "100%";
@@ -1056,6 +1080,124 @@
 
     var dlg = openDialog(body);
     closeBtn.addEventListener("click", dlg.close);
+  }
+
+  // ---------- Sicherung: Export/Import ----------
+
+  function openExportDialog() {
+    var body = el("div");
+    body.appendChild(el("h2", null, "Daten sichern"));
+    body.appendChild(el("p", "dialog-hint", "Diesen Text z. B. in eine Notiz oder Mail an euch selbst kopieren. Über \"Daten wiederherstellen\" lässt er sich später wieder einspielen."));
+
+    var textarea = document.createElement("textarea");
+    textarea.className = "backup-textarea";
+    textarea.readOnly = true;
+    textarea.value = storage.exportData();
+    body.appendChild(textarea);
+
+    var status = el("div", "dialog-hint");
+    body.appendChild(status);
+
+    var actions = el("div", "dialog-actions");
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "secondary-btn";
+    closeBtn.textContent = "Schließen";
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "primary-btn";
+    copyBtn.textContent = "Kopieren";
+    actions.appendChild(closeBtn);
+    actions.appendChild(copyBtn);
+    body.appendChild(actions);
+
+    if (navigator.share) {
+      var shareBtn = document.createElement("button");
+      shareBtn.className = "secondary-btn";
+      shareBtn.style.width = "100%";
+      shareBtn.style.marginTop = "10px";
+      shareBtn.textContent = "Teilen …";
+      shareBtn.addEventListener("click", function () {
+        navigator.share({ title: "Familien To-Do Sicherung", text: textarea.value }).catch(function () {});
+      });
+      body.appendChild(shareBtn);
+    }
+
+    var dlg = openDialog(body);
+    closeBtn.addEventListener("click", dlg.close);
+    copyBtn.addEventListener("click", function () {
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      status.textContent = ok
+        ? "In die Zwischenablage kopiert."
+        : "Kopieren hat nicht geklappt - bitte den Text oben von Hand markieren und kopieren.";
+    });
+  }
+
+  function openImportDialog() {
+    var body = el("div");
+    body.appendChild(el("h2", null, "Daten wiederherstellen"));
+    body.appendChild(el("p", "dialog-hint", "Fügt hier den zuvor gesicherten Text ein. Das ersetzt alle aktuellen Mitglieder und Aufgaben."));
+
+    var textarea = document.createElement("textarea");
+    textarea.className = "backup-textarea";
+    textarea.placeholder = "Text hier einfügen …";
+    body.appendChild(textarea);
+
+    var status = el("div", "dialog-hint");
+    status.style.color = "#d64545";
+    body.appendChild(status);
+
+    var actions = el("div", "dialog-actions");
+    var cancelBtn = document.createElement("button");
+    cancelBtn.className = "secondary-btn";
+    cancelBtn.textContent = "Abbrechen";
+    var restoreBtn = document.createElement("button");
+    restoreBtn.className = "primary-btn";
+    restoreBtn.textContent = "Wiederherstellen";
+    actions.appendChild(cancelBtn);
+    actions.appendChild(restoreBtn);
+    body.appendChild(actions);
+
+    var dlg = openDialog(body);
+    cancelBtn.addEventListener("click", dlg.close);
+
+    restoreBtn.addEventListener("click", function () {
+      status.textContent = "";
+      var text = textarea.value.trim();
+      if (!text) {
+        status.textContent = "Bitte zuerst den gesicherten Text einfügen.";
+        return;
+      }
+
+      var preview;
+      try {
+        preview = JSON.parse(text);
+      } catch (e) {
+        status.textContent = "Das ist kein gültiger Sicherungstext (kein gültiges JSON).";
+        return;
+      }
+      var newMemberCount = Array.isArray(preview.members) ? preview.members.length : 0;
+      var newTaskCount = Array.isArray(preview.tasks) ? preview.tasks.length : 0;
+      var current = storage.getSummary();
+      var confirmMsg = "Das ersetzt alle aktuellen Daten (" + current.memberCount + " Mitglieder, " +
+        current.taskCount + " Aufgaben) durch die eingefügten Daten (" + newMemberCount + " Mitglieder, " +
+        newTaskCount + " Aufgaben). Fortfahren?";
+      if (!window.confirm(confirmMsg)) return;
+
+      try {
+        storage.importData(text);
+      } catch (e) {
+        status.textContent = e.message || "Wiederherstellen fehlgeschlagen.";
+        return;
+      }
+
+      dlg.close();
+      unlockedUntil = 0; // PIN könnte sich durch den Import geändert haben
+      renderBoard();
+      openSettingsDialog();
+    });
   }
 
   // ---------- Member Dialog ----------
