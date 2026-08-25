@@ -9,6 +9,10 @@ html, body {
   padding: 0;
   overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
+  /* Fallback-Hintergrund, falls die Box von body den sichtbaren Bereich in
+     einer Home-Bildschirm-App (Vollbild) nicht ganz ausfüllt - sonst
+     scheint dort sonst ein heller/weißer Streifen durch. */
+  background: #eaf4ff;
 }
 
 body {
@@ -76,6 +80,15 @@ input, select {
 
 .board > * + * {
   margin-left: 16px;
+}
+
+/* Zentriert die Spalten, wenn sie nicht die ganze Breite ausfüllen (z.B.
+   nur 1-2 Familienmitglieder), ohne das horizontale Scrollen zu stören,
+   falls später mehr Spalten dazukommen als auf den Bildschirm passen. */
+.board::before,
+.board::after {
+  content: "";
+  margin: auto;
 }
 
 .column {
