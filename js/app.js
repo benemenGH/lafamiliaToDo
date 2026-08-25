@@ -22,6 +22,7 @@
     renderBoard();
     wireButtons();
     registerServiceWorker();
+    keepScreenAwake();
 
     setInterval(function () {
       if (storage.runDailyReset()) {
@@ -34,7 +35,18 @@
         if (storage.runDailyReset()) {
           renderBoard();
         }
+        keepScreenAwake();
       }
+    });
+  }
+
+  // Verhindert, dass der Bildschirm einschläft, sofern der Browser die
+  // Wake-Lock-API unterstützt (auf einem iPad mit iOS 12 z.B. noch nicht -
+  // dort hilft nur "Automatische Sperre: Nie" in den iPad-Einstellungen).
+  function keepScreenAwake() {
+    if (!("wakeLock" in navigator)) return;
+    navigator.wakeLock.request("screen").catch(function () {
+      // z.B. Akku im Sparmodus - dann bleibt es bei der Systemeinstellung
     });
   }
 

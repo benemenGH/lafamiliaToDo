@@ -48,9 +48,26 @@ Hintergrund lädt.
    entsperrt, danach wird beim nächsten Bearbeiten erneut nach der PIN
    gefragt.
 
-In den Einstellungen (Zahnrad-Symbol) lassen sich Familienmitglieder
-verwalten, alle Aufgaben (auch nicht heute sichtbare wiederkehrende)
-bearbeiten/löschen, und die PIN ändern.
+In den Einstellungen (kleines Zahnrad-Symbol unten rechts) lassen sich
+Familienmitglieder verwalten, alle Aufgaben (auch nicht heute sichtbare
+wiederkehrende) bearbeiten/löschen, und die PIN ändern.
+
+### 4. Bildschirm dauerhaft an lassen (fest platziertes iPad)
+
+Soll das iPad zentral im Haus liegen/hängen und die App dauerhaft
+zeigen, muss die automatische Bildschirmsperre am Gerät selbst
+deaktiviert werden – das lässt sich aus einer Web-App heraus nicht
+steuern (die dafür nötige Wake-Lock-Funktion gibt es unter iOS erst ab
+Version 16.4, das iPad Air 1 kommt aber nicht über iOS 12.5 hinaus).
+
+1. **Einstellungen → Anzeige & Helligkeit → Automatische Sperre → Nie.**
+2. Das iPad sollte dabei dauerhaft am Ladekabel hängen, da der Bildschirm
+   ständig an massiv mehr Strom braucht als im Normalbetrieb.
+3. Optional, damit Kinder nicht aus der App herausswitchen oder
+   versehentlich Einstellungen öffnen: **Einstellungen → Bedienungshilfen
+   → Zugriffsführung** aktivieren, dann in der App dreimal die
+   Seitentaste drücken, um sie auf genau diese eine App zu sperren
+   (mit eigenem, am besten anderem Code als die App-PIN beendbar).
 
 ## Technischer Hintergrund
 
