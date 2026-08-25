@@ -44,6 +44,15 @@
           console.error("Service Worker Registrierung fehlgeschlagen", err);
         });
       });
+
+      // Sobald eine neue Version des Service Workers übernimmt, Seite einmal
+      // neu laden, damit Updates ohne manuelles Doppel-Reload ankommen.
+      var reloadedForUpdate = false;
+      navigator.serviceWorker.addEventListener("controllerchange", function () {
+        if (reloadedForUpdate) return;
+        reloadedForUpdate = true;
+        window.location.reload();
+      });
     }
   }
 

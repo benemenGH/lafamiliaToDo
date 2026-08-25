@@ -1,5 +1,7 @@
 // Service Worker: cached alle App-Dateien beim ersten Laden, danach läuft die App komplett offline.
-var CACHE_NAME = "familien-todo-v1";
+// CACHE_NAME bei jeder inhaltlichen Änderung an den App-Dateien hochzählen (v2, v3, ...),
+// damit der Browser den Service Worker als geändert erkennt und neu installiert.
+var CACHE_NAME = "familien-todo-v2";
 
 var ASSETS = [
   "./",
@@ -39,24 +41,22 @@ self.addEventListener("activate", function (event) {
   );
 });
 
+// Network-first: solange Internet da ist, wird immer die aktuelle Version geladen
+// (wichtig, damit Updates ankommen). Nur ohne Netz greift der Offline-Cache.
 self.addEventListener("fetch", function (event) {
   if (event.request.method !== "GET") return;
 
   event.respondWith(
-    caches.match(event.request).then(function (cached) {
-      var networkFetch = fetch(event.request).then(function (response) {
-        if (response && response.status === 200 && response.type === "basic") {
-          var copy = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(event.request, copy);
-          });
-        }
-        return response;
-      }).catch(function () {
-        return cached;
-      });
-
-      return cached || networkFetch;
+    fetch(event.request).then(function (response) {
+      if (response && response.status === 200 && response.type === "basic") {
+        var copy = response.clone();
+        caches.open(CACHE_NAME).then(function (cache) {
+          cache.put(event.request, copy);
+        });
+      }
+      return response;
+    }).catch(function () {
+      return caches.match(event.request);
     })
   );
 });
